@@ -11,6 +11,7 @@ class Amazon(scrapy.Spider):
 
     def start_requests(self):
         yield scrapy.Request(url=self.START_URL, callback=self.parse_link, headers=self.HEADER)
+        # yield scrapy.Request(url='https://www.amazon.com/Hanes-X-Temp-Performance-T-Shirt-Black/dp/B00KBZTA4G/ref=sr_1_49?s=apparel&ie=UTF8&qid=1493286169&sr=1-49&nodeID=2476517011&psd=1', callback=self.parse_product, headers=self.HEADER)
 
     def parse_link(self, response):
         category_links = ['/Mens-Fashion/b/ref=nav_shopall_sft_men?ie=UTF8&node=7147441011',
@@ -20,18 +21,21 @@ class Amazon(scrapy.Spider):
                           ]
 
         for category in category_links:
-            link = self.START_URL + category
-            yield scrapy.Request(url=link, callback=self.parse_division, headers=self.HEADER)
+            if 'https' in category:
+                link = category
+            else:
+                link = self.START_URL + category
+            yield scrapy.Request(url=link, callback=self.parse_division, dont_filter=True, headers=self.HEADER)
 
     # click clothing link
     def parse_division(self, response):
         clothing_link = response.xpath('//div[contains(@class, "categoryRefinementsSection")]'
                                        '/ul[@class="root"]/li/ul/li/a/@href')[0].extract()
         if 'https' in clothing_link:
-            yield scrapy.Request(url=clothing_link, callback=self.parse_department, headers=self.HEADER)
+            cloth_link = clothing_link
         else:
-            clothing_link = 'https://amazon.com' + clothing_link
-            yield scrapy.Request(url=clothing_link, callback=self.parse_department, headers=self.HEADER)
+            cloth_link = self.START_URL + clothing_link
+        yield scrapy.Request(url=cloth_link, callback=self.parse_department, dont_filter=True, headers=self.HEADER)
 
     # click Dress
     def parse_department(self, response):
@@ -40,10 +44,10 @@ class Amazon(scrapy.Spider):
 
         for href in href_links:
             if 'https' in href:
-                yield scrapy.Request(url=href, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+                depart_link = href
             else:
-                href = 'https://amazon.com' + href
-                yield scrapy.Request(url=href, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+                depart_link = self.START_URL + href
+            yield scrapy.Request(url=depart_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
 
     # click Casual
     def parse_sub_department(self, response):
@@ -52,10 +56,10 @@ class Amazon(scrapy.Spider):
 
         for sub_link in sub_links:
             if 'https' in sub_link:
-                yield scrapy.Request(url=sub_link, callback=self.parse_page, dont_filter=True, headers=self.HEADER)
+                s_link = sub_link
             else:
-                sub_link = 'https://amazon.com' + sub_link
-                yield scrapy.Request(url=sub_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+                s_link = self.START_URL + sub_link
+            yield scrapy.Request(url=s_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
 
     # click pagenation
     def parse_page(self, response):
@@ -71,9 +75,11 @@ class Amazon(scrapy.Spider):
             page_links.append(page_list)
 
         for p_link in page_links:
-            if 'https' not in p_link:
-                sub_link = 'https://amazon.com' + sub_link
-            yield scrapy.Request(url=p_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+            if 'https' in p_link:
+                sub_link = p_link
+            else:
+                sub_link = self.START_URL + p_link
+            yield scrapy.Request(url=sub_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
 
     # click product
     def parse_product_link(self, response):
@@ -82,11 +88,14 @@ class Amazon(scrapy.Spider):
 
         for product_link in product_links:
             if 'https' in product_link:
-                yield scrapy.Request(url=product_link, callback=self.parse_product,
-                                     dont_filter=True, headers=self.HEADER)
+                pro_link = product_link
+            else:
+                pro_link = self.START_URL + product_link
+            yield scrapy.Request(url=pro_link, callback=self.parse_product,
+                                 dont_filter=True, headers=self.HEADER)
 
     @staticmethod
-    def parse_product(response):
+    def parse_product(self, response):
         item = AmazonclothItem()
 
         price = response.xpath('//span[@id="priceblock_ourprice"]/text()').extract()
@@ -95,28 +104,40 @@ class Amazon(scrapy.Spider):
 
         item["Wholesale_Price"] = price
 
-        vsn = re.search('asin=(.*);', response.body, re.DOTALL).group(1)
+        vsn = re.search('dp/(.*)/ref', response.url, re.DOTALL).group(1)
         item["VSN"] = vsn
 
         size_desc = response.xpath('//select/option[@class="dropdownAvailable"]/text()').extract()
+        for i in range(0, len(size_desc)-1):
+            size_desc[i] = self.remove_spaces(size_desc[i])
         item["Size_Desc"] = size_desc
 
         color_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                     '/li[contains(@id, "color_name")]//img/@alt').extract()
+        for i in range(0, len(color_desc)-1):
+            color_desc[i] = self.remove_spaces(color_desc[i])
         item["Color_Desc"] = color_desc
 
         division_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                        '/li/span/a/text()')[0].extract()
-        item["Division_Description"] = division_desc
+        item["Division_Description"] = self.remove_spaces(division_desc)
 
         department_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                          '/li/span/a/text()')[1].extract()
-        item["Department_Description"] = department_desc
+        item["Department_Description"] = self.remove_spaces(department_desc)
 
         sub_department_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                              '/li/span/a/text()')[2].extract()
-        item["Sub_Department_Description"] = sub_department_desc
+        item["Sub_Department_Description"] = self.remove_spaces(sub_department_desc)
+
+        avaiable_u = response.xpath('//select[@name="quantity"]/option/text()').extract()
+        item['Available_U'] = len(avaiable_u)
+
+        brand = response.xpath('//a[@id="brand"]/@href')[0].extract()
+        item['Brand_Desc'] = brand.split('/')[1].split('/')[0]
 
         yield item
 
-
+    @staticmethod
+    def remove_spaces(str):
+        return ' '.join(str.split())
