@@ -20,5 +20,4 @@ class AmazonclothItem(scrapy.Item):
     Size_Desc = scrapy.Field()
     VSN = scrapy.Field()
     Wholesale_Price = scrapy.Field()
-    Available_U = scrapy.Field()
     pass

@@ -11,7 +11,6 @@ class Amazon(scrapy.Spider):
 
     def start_requests(self):
         yield scrapy.Request(url=self.START_URL, callback=self.parse_link, headers=self.HEADER)
-        # yield scrapy.Request(url='https://www.amazon.com/Hanes-X-Temp-Performance-T-Shirt-Black/dp/B00KBZTA4G/ref=sr_1_49?s=apparel&ie=UTF8&qid=1493286169&sr=1-49&nodeID=2476517011&psd=1', callback=self.parse_product, headers=self.HEADER)
 
     def parse_link(self, response):
         category_links = ['/Mens-Fashion/b/ref=nav_shopall_sft_men?ie=UTF8&node=7147441011',
@@ -94,11 +93,11 @@ class Amazon(scrapy.Spider):
             yield scrapy.Request(url=pro_link, callback=self.parse_product,
                                  dont_filter=True, headers=self.HEADER)
 
-    @staticmethod
+    #@staticmethod
     def parse_product(self, response):
         item = AmazonclothItem()
 
-        price = response.xpath('//span[@id="priceblock_ourprice"]/text()').extract()
+        price = response.xpath('//span[contains(@id,"priceblock")]/text()').extract()
         if '-' in price:
             price = price.split('-')[0]
 
@@ -108,36 +107,33 @@ class Amazon(scrapy.Spider):
         item["VSN"] = vsn
 
         size_desc = response.xpath('//select/option[@class="dropdownAvailable"]/text()').extract()
-        for i in range(0, len(size_desc)-1):
-            size_desc[i] = self.remove_spaces(size_desc[i])
+        for i in range(0, len(size_desc)):
+            size_desc[i] = remove_spaces(size_desc[i])
         item["Size_Desc"] = size_desc
 
         color_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                     '/li[contains(@id, "color_name")]//img/@alt').extract()
         for i in range(0, len(color_desc)-1):
-            color_desc[i] = self.remove_spaces(color_desc[i])
+            color_desc[i] = remove_spaces(color_desc[i])
         item["Color_Desc"] = color_desc
 
         division_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                        '/li/span/a/text()')[0].extract()
-        item["Division_Description"] = self.remove_spaces(division_desc)
+        item["Division_Description"] = remove_spaces(division_desc)
 
         department_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                          '/li/span/a/text()')[1].extract()
-        item["Department_Description"] = self.remove_spaces(department_desc)
+        item["Department_Description"] = remove_spaces(department_desc)
 
         sub_department_desc = response.xpath('//ul[contains(@class, "a-unordered-list")]'
                                              '/li/span/a/text()')[2].extract()
-        item["Sub_Department_Description"] = self.remove_spaces(sub_department_desc)
-
-        avaiable_u = response.xpath('//select[@name="quantity"]/option/text()').extract()
-        item['Available_U'] = len(avaiable_u)
+        item["Sub_Department_Description"] = remove_spaces(sub_department_desc)
 
         brand = response.xpath('//a[@id="brand"]/@href')[0].extract()
         item['Brand_Desc'] = brand.split('/')[1].split('/')[0]
 
         yield item
 
-    @staticmethod
-    def remove_spaces(str):
-        return ' '.join(str.split())
+    #@staticmethod
+def remove_spaces(str):
+    return ' '.join(str.split())
