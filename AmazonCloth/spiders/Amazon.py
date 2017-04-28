@@ -40,7 +40,6 @@ class Amazon(scrapy.Spider):
     def parse_department(self, response):
         href_links = response.xpath('//div[contains(@class, "categoryRefinementsSection")]'
                                     '/ul[@class="root"]/li/ul/li/ul/li/a/@href').extract()
-
         for href in href_links:
             if 'https' in href:
                 depart_link = href
@@ -52,13 +51,12 @@ class Amazon(scrapy.Spider):
     def parse_sub_department(self, response):
         sub_links = response.xpath('//div[contains(@class, "categoryRefinementsSection")]'
                                    '/ul[@class="root"]/li/ul/li/ul/li/ul/li/a/@href').extract()
-
         for sub_link in sub_links:
             if 'https' in sub_link:
                 s_link = sub_link
             else:
                 s_link = self.START_URL + sub_link
-            yield scrapy.Request(url=s_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+            yield scrapy.Request(url=s_link, callback=self.parse_page, dont_filter=True, headers=self.HEADER)
 
     # click pagenation
     def parse_page(self, response):
@@ -78,7 +76,7 @@ class Amazon(scrapy.Spider):
                 sub_link = p_link
             else:
                 sub_link = self.START_URL + p_link
-            yield scrapy.Request(url=sub_link, callback=self.parse_sub_department, dont_filter=True, headers=self.HEADER)
+            yield scrapy.Request(url=sub_link, callback=self.parse_product_link, dont_filter=True, headers=self.HEADER)
 
     # click product
     def parse_product_link(self, response):
